@@ -179,7 +179,7 @@ class Solver(object):
 
                 if self.global_iter%self.display_step == 0:
                     pbar.write('[{}] recon_loss:{:.3f} total_kld:{:.3f} mean_kld:{:.3f}'.format(
-                        self.global_iter, recon_loss.data[0], total_kld.data[0], mean_kld.data[0]))
+                        self.global_iter, recon_loss.item(), total_kld.item(), mean_kld.item()))
 
                     var = logvar.exp().mean(0).data
                     var_str = ''
