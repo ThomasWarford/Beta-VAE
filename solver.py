@@ -14,7 +14,7 @@ from torch.autograd import Variable
 from torchvision.utils import make_grid, save_image
 
 from utils import cuda, grid2gif
-from model import BetaVAE_H, BetaVAE_B
+from model import BetaVAE_H, BetaVAE_H_128, BetaVAE_B
 from dataset import return_data
 
 
@@ -91,6 +91,9 @@ class Solver(object):
         if args.dataset.lower() == 'dsprites':
             self.nc = 1
             self.decoder_dist = 'bernoulli'
+        elif args.dataset.lower() == 'energies4':
+            self.nc = 1
+            self.decoder_dist = 'gaussian'
         elif args.dataset.lower() == '3dchairs':
             self.nc = 3
             self.decoder_dist = 'gaussian'
@@ -102,6 +105,8 @@ class Solver(object):
 
         if args.model == 'H':
             net = BetaVAE_H
+        elif args.model == 'H_128':
+            net = BetaVAE_H_128
         elif args.model == 'B':
             net = BetaVAE_B
         else:
@@ -161,7 +166,7 @@ class Solver(object):
                 recon_loss = reconstruction_loss(x, x_recon, self.decoder_dist)
                 total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
 
-                if self.objective == 'H':
+                if self.objective == 'H' or self.objective == 'H_128':
                     beta_vae_loss = recon_loss + self.beta*total_kld
                 elif self.objective == 'B':
                     C = torch.clamp(self.C_max/self.C_stop_iter*self.global_iter, 0, self.C_max.data[0])
@@ -415,7 +420,7 @@ class Solver(object):
             for i, key in enumerate(Z.keys()):
                 for j, val in enumerate(interpolation):
                     save_image(tensor=gifs[i][j].cpu(),
-                               filename=os.path.join(output_dir, '{}_{}.jpg'.format(key, j)),
+                               fp=os.path.join(output_dir, '{}_{}.jpg'.format(key, j)),
                                nrow=self.z_dim, pad_value=1)
 
                 grid2gif(os.path.join(output_dir, key+'*.jpg'),

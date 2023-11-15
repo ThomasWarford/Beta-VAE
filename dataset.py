@@ -43,7 +43,7 @@ def return_data(args):
     batch_size = args.batch_size
     num_workers = args.num_workers
     image_size = args.image_size
-    assert image_size == 64, 'currently only image size of 64 is supported'
+    assert image_size == 64 or image_size == 128, 'currently only image size of 64,128 is supported'
 
     if name.lower() == '3dchairs':
         root = os.path.join(dset_dir, '3DChairs')
@@ -52,6 +52,13 @@ def return_data(args):
             transforms.ToTensor(),])
         train_kwargs = {'root':root, 'transform':transform}
         dset = CustomImageFolder
+    
+    elif name.lower() == 'energies4':
+        root = os.path.join(dset_dir, 'energies4/padded.npz')
+        data = np.load(root)
+        data = torch.from_numpy(data['arr_0']).unsqueeze(1).float()
+        train_kwargs = {'data_tensor':data}
+        dset = CustomTensorDataset
 
     elif name.lower() == 'celeba':
         root = os.path.join(dset_dir, 'CelebA')
