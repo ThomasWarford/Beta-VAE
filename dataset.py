@@ -80,6 +80,21 @@ def return_data(args):
         train_kwargs = {'data_tensor':data}
         dset = CustomTensorDataset
 
+    elif name.lower() == 'no_dos_bw':
+        root = os.path.join(dset_dir, 'no_dos_bw')
+        transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),])
+        train_kwargs = {'root':root, 'transform':transform}
+        dset = CustomImageFolder
+        
+    elif name.lower() == 'dpi_none_thickness_3_64x64':
+        root = os.path.join(dset_dir, 'dpi_none_thickness_3_64x64/dpi_none_thickness_3_64x64.npz')
+
+        data = np.load(root, encoding='bytes')
+        data = torch.from_numpy(data['images']).unsqueeze(1).float()
+        train_kwargs = {'data_tensor':data}
+        dset = CustomTensorDataset
     else:
         raise NotImplementedError
 
