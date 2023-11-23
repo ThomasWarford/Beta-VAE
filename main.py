@@ -63,6 +63,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--ckpt_dir', default='checkpoints', type=str, help='checkpoint directory')
     parser.add_argument('--ckpt_name', default='last', type=str, help='load previous checkpoint. insert checkpoint filename')
+    
+    # parser.add_argument('--dropout', default=0, type=float, help='dropout percentage')
+    parser.add_argument('--random_erasing_probability', default=0, type=float, help='fraction of images with random erasing applied')
 
     args = parser.parse_args()
 

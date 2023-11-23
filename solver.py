@@ -17,6 +17,8 @@ from utils import cuda, grid2gif
 from model import BetaVAE_H, BetaVAE_H_128, BetaVAE_B, BetaVAE_B_128
 from dataset import return_data
 
+from torchvision.transforms import RandomErasing
+
 # change to 64 if input images are 64x64, need a better way to automate this
 input_dim = 128
 
@@ -89,6 +91,8 @@ class Solver(object):
         self.lr = args.lr
         self.beta1 = args.beta1
         self.beta2 = args.beta2
+        
+        self.random_erasing_probability = args.random_erasing_probability
 
         if args.dataset.lower() == 'dsprites':
             self.nc = 1
@@ -174,9 +178,14 @@ class Solver(object):
                 self.global_iter += 1
                 pbar.update(1)
 
-                x = Variable(cuda(x, self.use_cuda))
+                x_inp = Variable(cuda(x, self.use_cuda))
+                if self.random_erasing_probability:
+                    x = RandomErasing(self.random_erasing_probability, value="random")(x_inp)
+                else:
+                    x = x_inp
+                
                 x_recon, mu, logvar = self.net(x)
-                recon_loss = reconstruction_loss(x, x_recon, self.decoder_dist)
+                recon_loss = reconstruction_loss(x_inp, x_recon, self.decoder_dist)
                 total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
 
                 if self.objective == 'H' or self.objective == 'H_128':

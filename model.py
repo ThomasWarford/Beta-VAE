@@ -189,7 +189,7 @@ class BetaVAE_B_128(BetaVAE_H):
     """Model proposed in understanding beta-VAE paper(Burgess et al, arxiv:1804.03599, 2018)."""
 
     def __init__(self, z_dim=10, nc=1):
-        super(BetaVAE_B, self).__init__()
+        super(BetaVAE_B_128, self).__init__()
         self.nc = nc
         self.z_dim = z_dim
 
