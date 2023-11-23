@@ -14,9 +14,11 @@ from torch.autograd import Variable
 from torchvision.utils import make_grid, save_image
 
 from utils import cuda, grid2gif
-from model import BetaVAE_H, BetaVAE_H_128, BetaVAE_B
+from model import BetaVAE_H, BetaVAE_H_128, BetaVAE_B, BetaVAE_B_128
 from dataset import return_data
 
+# change to 64 if input images are 64x64, need a better way to automate this
+input_dim = 128
 
 def reconstruction_loss(x, x_recon, distribution):
     batch_size = x.size(0)
@@ -91,6 +93,9 @@ class Solver(object):
         if args.dataset.lower() == 'dsprites':
             self.nc = 1
             self.decoder_dist = 'bernoulli'
+        elif args.dataset.lower() == 'no_dos_bw':
+            self.nc = 3
+            self.decoder_dist = 'bernoulli'
         elif args.dataset.lower() == 'energies4':
             self.nc = 1
             self.decoder_dist = 'gaussian'
@@ -100,6 +105,12 @@ class Solver(object):
         elif args.dataset.lower() == 'celeba':
             self.nc = 3
             self.decoder_dist = 'gaussian'
+        elif args.dataset.lower() == 'dpi_none_thickness_3_64x64':
+            self.nc = 1
+            self.decoder_dist = 'bernoulli'
+        elif args.dataset.lower() == 'dpi_none_thickness_3_128x128_binary':
+            self.nc = 1
+            self.decoder_dist = 'bernoulli'
         else:
             raise NotImplementedError
 
@@ -109,6 +120,8 @@ class Solver(object):
             net = BetaVAE_H_128
         elif args.model == 'B':
             net = BetaVAE_B
+        elif args.model == 'B_128':
+            net = BetaVAE_B_128
         else:
             raise NotImplementedError('only support model H or B')
 
@@ -416,7 +429,7 @@ class Solver(object):
             output_dir = os.path.join(self.output_dir, str(self.global_iter))
             os.makedirs(output_dir, exist_ok=True)
             gifs = torch.cat(gifs)
-            gifs = gifs.view(len(Z), self.z_dim, len(interpolation), self.nc, 64, 64).transpose(1, 2)
+            gifs = gifs.view(len(Z), self.z_dim, len(interpolation), self.nc, input_dim, input_dim).transpose(1, 2)
             for i, key in enumerate(Z.keys()):
                 for j, val in enumerate(interpolation):
                     save_image(tensor=gifs[i][j].cpu(),
