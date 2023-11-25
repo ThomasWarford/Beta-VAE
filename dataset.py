@@ -100,7 +100,14 @@ def return_data(args):
         root = os.path.join(dset_dir, 'dpi_none_thickness_3_128x128_binary/dpi_none_thickness_3_128x128_binary.npz')
 
         data = np.load(root, encoding='bytes')
-        data = torch.from_numpy(data['images'][100:]).unsqueeze(1).float()
+        
+        if args.validation_size:
+            #data = 
+            valid_ids = torch.range(args.validation_size)
+            valid_ids[10:] = torch.randint(args.validation_size-10)
+            data = torch.from_numpy(data['images'][100:]).unsqueeze(1).float()      
+        else:       
+            data = torch.from_numpy(data['images'][100:]).unsqueeze(1).float()
         train_kwargs = {'data_tensor':data}
         dset = CustomTensorDataset
     else:

@@ -66,6 +66,10 @@ if __name__ == "__main__":
     
     # parser.add_argument('--dropout', default=0, type=float, help='dropout percentage')
     parser.add_argument('--random_erasing_probability', default=0, type=float, help='fraction of images with random erasing applied')
+    parser.add_argument('--gaus_blur', default=False, type=bool, help='is gaussian blur applied')
+    
+    parser.add_argument('--validation_size', default=0, type=int, help='Number of items in the validation set')
+    
 
     args = parser.parse_args()
 
