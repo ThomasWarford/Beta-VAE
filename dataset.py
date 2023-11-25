@@ -87,12 +87,20 @@ def return_data(args):
             transforms.ToTensor(),])
         train_kwargs = {'root':root, 'transform':transform}
         dset = CustomImageFolder
-        
     elif name.lower() == 'dpi_none_thickness_3_64x64':
         root = os.path.join(dset_dir, 'dpi_none_thickness_3_64x64/dpi_none_thickness_3_64x64.npz')
 
         data = np.load(root, encoding='bytes')
-        data = torch.from_numpy(data['images'][100:]).unsqueeze(1).float()
+        
+        
+        if args.validation_size:
+            data = torch.from_numpy(data['images']).unsqueeze(1).float() 
+            indices = torch.randperm(len(data))
+            data = data[indices]
+            data, data_valid = data[:args.validation_size], data[args.validation_size:]
+        else:       
+            data = torch.from_numpy(data['images'][100:]).unsqueeze(1).float()
+            
         train_kwargs = {'data_tensor':data}
         dset = CustomTensorDataset
     
@@ -101,18 +109,34 @@ def return_data(args):
 
         data = np.load(root, encoding='bytes')
         
+        
         if args.validation_size:
-            #data = 
-            valid_ids = torch.range(args.validation_size)
-            valid_ids[10:] = torch.randint(args.validation_size-10)
-            data = torch.from_numpy(data['images'][100:]).unsqueeze(1).float()      
+            data = torch.from_numpy(data['images']).unsqueeze(1).float() 
+            indices = torch.randperm(len(data))
+            data = data[indices]
+            data, data_valid = data[:args.validation_size], data[args.validation_size:]
         else:       
             data = torch.from_numpy(data['images'][100:]).unsqueeze(1).float()
+            
         train_kwargs = {'data_tensor':data}
         dset = CustomTensorDataset
     else:
         raise NotImplementedError
-
+    
+    if not('data_valid' in locals()) and args.validation_size:
+        raise NotImplementedError("Validation set not implemented for this data")
+    
+    if args.validation_size: # create csv tracking validation loss & save validation indices
+        output_dir = os.path.join(args.output_dir, args.viz_name)
+        
+        with open(f"{output_dir}/loss.csv", "a") as file:
+            file.write(f"iteration, valid_recon_loss, .valid_total_kld, valid_mean_kld")
+            file.write("\n")
+            
+        with open(f"{output_dir}/indices.csv", "a") as file:
+            print(f"{indices[:args.validation_size]=}")
+            file.write(",".join([str(index) for index in indices[:args.validation_size].detach().tolist()]))  
+            file.write("\n")
 
     train_data = dset(**train_kwargs)
     train_loader = DataLoader(train_data,
@@ -124,6 +148,9 @@ def return_data(args):
 
     data_loader = train_loader
 
+    if args.validation_size:
+        return data_loader, data_valid
+    
     return data_loader
 
 if __name__ == '__main__':

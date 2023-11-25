@@ -17,10 +17,9 @@ from utils import cuda, grid2gif
 from model import BetaVAE_H, BetaVAE_H_128, BetaVAE_B, BetaVAE_B_128
 from dataset import return_data
 
-from torchvision.transforms import RandomErasing
+from torchvision.transforms import RandomErasing, GaussianBlur
 
 # change to 64 if input images are 64x64, need a better way to automate this
-input_dim = 128
 
 def reconstruction_loss(x, x_recon, distribution):
     batch_size = x.size(0)
@@ -91,8 +90,12 @@ class Solver(object):
         self.lr = args.lr
         self.beta1 = args.beta1
         self.beta2 = args.beta2
+        self.validation_size = args.validation_size
         
         self.random_erasing_probability = args.random_erasing_probability
+        self.gaus_blur = args.gaus_blur
+        
+        self.image_size = args.image_size
 
         if args.dataset.lower() == 'dsprites':
             self.nc = 1
@@ -119,13 +122,15 @@ class Solver(object):
             raise NotImplementedError
 
         if args.model == 'H':
-            net = BetaVAE_H
-        elif args.model == 'H_128':
-            net = BetaVAE_H_128
+            if self.image_size == 64:
+                net = BetaVAE_H
+            if self.image_size == 128:
+                net = BetaVAE_H_128
         elif args.model == 'B':
-            net = BetaVAE_B
-        elif args.model == 'B_128':
-            net = BetaVAE_B_128
+            if self.image_size == 64:
+                net = BetaVAE_B
+            if self.image_size == 128:
+                net = BetaVAE_B_128
         else:
             raise NotImplementedError('only support model H or B')
 
@@ -162,8 +167,13 @@ class Solver(object):
         self.dset_dir = args.dset_dir
         self.dataset = args.dataset
         self.batch_size = args.batch_size
-        self.data_loader = return_data(args)
-
+        
+        if args.validation_size:
+            self.data_loader, self.data_valid = return_data(args)
+            self.data_valid = cuda(self.data_valid, self.use_cuda)
+        else:
+            self.data_loader = return_data(args)
+            
         self.gather = DataGather()
 
     def train(self):
@@ -179,10 +189,16 @@ class Solver(object):
                 pbar.update(1)
 
                 x_inp = Variable(cuda(x, self.use_cuda))
+                x_inp = cuda(x, self.use_cuda)
+                x = x_inp.clone()
+                x = Variable(cuda(x, self.use_cuda))
+                
                 if self.random_erasing_probability:
-                    x = RandomErasing(self.random_erasing_probability, value="random")(x_inp)
-                else:
-                    x = x_inp
+                    #print("random")
+                    x = RandomErasing(self.random_erasing_probability, value="random", scale=(0.25,0.25))(x)
+                if self.gaus_blur:
+                    #print("blur")
+                    x = GaussianBlur(kernel_size=63, sigma=(0.1,2.0))(x)
                 
                 x_recon, mu, logvar = self.net(x)
                 recon_loss = reconstruction_loss(x_inp, x_recon, self.decoder_dist)
@@ -198,13 +214,24 @@ class Solver(object):
                 beta_vae_loss.backward()
                 self.optim.step()
 
-                if self.viz_on and self.global_iter%self.gather_step == 0:
+                if self.viz_on and self.global_iter%self.gather_step == 0:                    
                     self.gather.insert(iter=self.global_iter,
                                        mu=mu.mean(0).data, var=logvar.exp().mean(0).data,
                                        recon_loss=recon_loss.data, total_kld=total_kld.data,
                                        dim_wise_kld=dim_wise_kld.data, mean_kld=mean_kld.data)
 
                 if self.global_iter%self.display_step == 0:
+                    if self.validation_size:
+                        self.net_mode(train=False)
+                        x = self.data_valid
+                        x_recon, mu, logvar = self.net(x)
+                        self.valid_recon_loss = reconstruction_loss(x, x_recon, self.decoder_dist)
+                        self.valid_total_kld, _, self.valid_mean_kld = kl_divergence(mu, logvar)
+
+                        pbar.write('[{}] valid_recon_loss:{:.3f} valid_total_kld:{:.3f} valid_mean_kld:{:.3f}'.format(
+                            self.global_iter, self.valid_recon_loss.item(), self.valid_total_kld.item(), self.valid_mean_kld.item()))
+                        self.net_mode(train=True)
+                        
                     pbar.write('[{}] recon_loss:{:.3f} total_kld:{:.3f} mean_kld:{:.3f}'.format(
                         self.global_iter, recon_loss.item(), total_kld.item(), mean_kld.item()))
 
@@ -435,10 +462,15 @@ class Solver(object):
                                 opts=dict(title=title), nrow=len(interpolation))
 
         if self.save_output:
+            if self.validation_size:
+                with open(f"{self.output_dir}/loss.csv", "a") as file:
+                    file.write(f"{self.global_iter}, {self.valid_recon_loss.item()}, {self.valid_total_kld.item()}, { self.valid_mean_kld.item()}")
+                    file.write("\n")
+            
             output_dir = os.path.join(self.output_dir, str(self.global_iter))
             os.makedirs(output_dir, exist_ok=True)
             gifs = torch.cat(gifs)
-            gifs = gifs.view(len(Z), self.z_dim, len(interpolation), self.nc, input_dim, input_dim).transpose(1, 2)
+            gifs = gifs.view(len(Z), self.z_dim, len(interpolation), self.nc, self.image_size, self.image_size).transpose(1, 2)
             for i, key in enumerate(Z.keys()):
                 for j, val in enumerate(interpolation):
                     save_image(tensor=gifs[i][j].cpu(),
