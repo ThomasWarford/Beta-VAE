@@ -195,7 +195,7 @@ class Solver(object):
                 
                 if self.random_erasing_probability:
                     #print("random")
-                    x = RandomErasing(self.random_erasing_probability, value="random", scale=(0.25,0.25))(x)
+                    x = RandomErasing(self.random_erasing_probability, value=args.random_erasing_fill, scale=(0.25,0.25))(x)
                 if self.gaus_blur:
                     #print("blur")
                     x = GaussianBlur(kernel_size=63, sigma=(0.1,2.0))(x)
